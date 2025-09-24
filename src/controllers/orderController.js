@@ -9,7 +9,8 @@ exports.getOrders = async (req, res) => {
     const result = await pool.query('SELECT * FROM production_orders ORDER BY start_plan DESC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -20,8 +21,8 @@ exports.getOrderById = async (req, res) => {
   try {
     const orderResult = await pool.query('SELECT * FROM production_orders WHERE id = $1', [req.params.id]);
     if (orderResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Production order not found' });
-    }
+      return res.status(404).json({ message: 'Không thấy lệnh sản xuất' });
+    } 
     const order = orderResult.rows[0];
 
     const opsResult = await pool.query(
@@ -32,11 +33,12 @@ exports.getOrderById = async (req, res) => {
 
     res.json(order);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
-// @desc    Create a new production order and its operations
+// @desc    Create new 
 // @route   POST /api/orders
 // @access  Private (Planner, Admin)
 exports.createOrder = async (req, res) => {
@@ -56,7 +58,7 @@ exports.createOrder = async (req, res) => {
       [product_id]
     );
     if (routingRes.rows.length === 0) {
-      throw new Error('No active routing found for the selected product.');
+      throw new Error('Không tìm thấy tuyến hoạt động cho sản phẩm đã chọn.');
     }
     const routingId = routingRes.rows[0].id;
 
@@ -65,7 +67,7 @@ exports.createOrder = async (req, res) => {
       [routingId]
     );
     if (stepsRes.rows.length === 0) {
-      throw new Error('The active routing has no steps defined.');
+      throw new Error('Tuyến hoạt động không có bước nào được định nghĩa.');
     }
     const routingSteps = stepsRes.rows;
 
@@ -83,16 +85,17 @@ exports.createOrder = async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'Production order and operations created successfully', po_id: poId });
+    res.status(201).json({ message: 'Lệnh sản xuất và các hoạt động đã được tạo thành công', po_id: poId });
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Transaction failed', details: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
 };
 
-// @desc    Update a production order's status or details
+// @desc    Update production order's status or details
 // @route   PUT /api/orders/:id
 // @access  Private (Planner, Admin)
 exports.updateOrder = async (req, res) => {
@@ -108,10 +111,59 @@ exports.updateOrder = async (req, res) => {
             [code, product_id, qty_plan, start_plan, end_plan, status, req.params.id]
         );
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Production order not found' });
+            return res.status(404).json({ message: 'Không tìm thấy lệnh sản xuất' });
         }
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err.message);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// @desc    Get the progress of a single production order
+// @route   GET /api/orders/:id/progress
+// @access  Private
+exports.getOrderProgress = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { id } = req.params;
+
+    const query = `
+        WITH last_op AS (
+            SELECT operation_id
+            FROM po_operations
+            WHERE po_id = $1
+            ORDER BY step_no DESC
+            LIMIT 1
+        ),
+        final_qty AS (
+            SELECT SUM(pr.qty_ok) as total_final_ok
+            FROM prod_reports pr
+            WHERE pr.po_id = $1 AND pr.operation_id = (SELECT operation_id FROM last_op)
+        )
+        SELECT
+            po.id as po_id,
+            po.qty_plan,
+            (SELECT total_final_ok FROM final_qty) as final_operation_ok,
+            CASE
+                WHEN po.qty_plan > 0 THEN (SELECT total_final_ok FROM final_qty) / po.qty_plan
+                ELSE 0
+            END as progress
+        FROM production_orders po
+        WHERE po.id = $1;
+    `;
+
+    try {
+        const result = await pool.query(query, [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy lệnh sản xuất' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Server error' });
     }
 };

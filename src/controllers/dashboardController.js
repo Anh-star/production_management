@@ -35,7 +35,11 @@ exports.getDashboardSummary = async (req, res) => {
       CASE
         WHEN SUM(pr.runtime_min) > 0 THEN SUM(pr.qty_ok) / SUM(pr.runtime_min)
         ELSE 0
-      END as efficiency_output_per_min
+      END as efficiency_output_per_min,
+      CASE
+        WHEN (SUM(pr.qty_ok) + SUM(pr.qty_ng)) > 0 THEN SUM(pr.qty_ng) / (SUM(pr.qty_ok) + SUM(pr.qty_ng))
+        ELSE 0
+      END as defect_rate
     FROM prod_reports pr
     JOIN production_orders po ON pr.po_id = po.id
     JOIN products p ON po.product_id = p.id
@@ -87,6 +91,7 @@ exports.getDashboardSummary = async (req, res) => {
     const result = await pool.query(query, queryParams);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to retrieve dashboard data', details: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };

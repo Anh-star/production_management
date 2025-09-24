@@ -11,6 +11,15 @@ function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+
+    // Issue a new token with a refreshed expiration time
+    const newToken = jwt.sign(
+      { id: decoded.id, role: decoded.role, username: decoded.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    res.setHeader('x-auth-token', newToken);
+
     next();
   } catch (err) {
     return res.status(403).json({ message: 'Token invalid' });

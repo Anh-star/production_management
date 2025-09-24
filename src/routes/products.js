@@ -12,11 +12,11 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/roles');
 
 const productValidation = [
-  body('code', 'Product code is required').not().isEmpty(),
-  body('name', 'Product name is required').not().isEmpty(),
-  body('version', 'Version is required').not().isEmpty(),
-  body('uom', 'Unit of measure is required').not().isEmpty(),
-  body('is_active', 'is_active must be a boolean').optional().isBoolean(),
+  body('code', 'Mã sản phẩm là bắt buộc').not().isEmpty(),
+  body('name', 'Tên sản phẩm là bắt buộc').not().isEmpty(),
+  body('version', 'Cần có phiên bản').not().isEmpty(),
+  body('uom', 'Cần có đơn vị đo lường').not().isEmpty(),
+  body('is_active', 'is_active phải là một giá trị boolean').optional().isBoolean(),
 ];
 router.get('/', auth, getProducts);
 router.get('/:id', auth, getProductById);

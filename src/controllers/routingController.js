@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { validationResult } = require('express-validator');
+const { logToAudit } = require('../utils/audit');
 
 // @desc    Create a new routing for a product
 // @route   POST /api/routings
@@ -35,10 +36,14 @@ exports.createRouting = async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'Routing created successfully', routing_id: routingId });
+    
+    await logToAudit('create', 'routing_headers', routingId, req.user.id, req.body, client);
+
+    res.status(201).json({ message: 'Tuyến được tạo thành công', routing_id: routingId });
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Transaction failed', details: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -56,7 +61,7 @@ exports.getActiveRoutingForProduct = async (req, res) => {
     );
 
     if (headerResult.rows.length === 0) {
-      return res.status(404).json({ message: 'No active routing found for this product' });
+      return res.status(404).json({ message: 'Không tìm thấy tuyến hoạt động cho sản phẩm này.' });
     }
     const routingHeader = headerResult.rows[0];
 
@@ -67,6 +72,7 @@ exports.getActiveRoutingForProduct = async (req, res) => {
 
     res.json({ ...routingHeader, steps: stepsResult.rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };

@@ -12,10 +12,10 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/roles');
 
 const shiftValidation = [
-  body('code', 'Shift code is required').not().isEmpty(),
-  body('name', 'Shift name is required').not().isEmpty(),
-  body('start_time', 'Start time is required in HH:MM format').matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
-  body('end_time', 'End time is required in HH:MM format').matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
+  body('code', 'Shift code là bắt buộc').not().isEmpty(),
+  body('name', 'Shift name là bắt buộc').not().isEmpty(),
+  body('start_time', 'Start time là bắt buộc ở dạng HH:MM').matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
+  body('end_time', 'End time là bắt buộc ở dạng HH:MM').matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
 ];
 router.get('/', auth, authorize('Admin'), getShifts);
 router.get('/:id', auth, authorize('Admin'), getShiftById);

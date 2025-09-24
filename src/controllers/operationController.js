@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { validationResult } = require('express-validator');
+const { logToAudit } = require('../utils/audit');
 
 // @desc    Get all operations
 // @route   GET /api/operations
@@ -9,7 +10,8 @@ exports.getOperations = async (req, res) => {
     const result = await pool.query('SELECT * FROM operations WHERE is_active = TRUE ORDER BY name');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -20,11 +22,12 @@ exports.getOperationById = async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM operations WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Operation not found' });
+      return res.status(404).json({ message: 'Không tìm thấy Operation' });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -43,12 +46,15 @@ exports.createOperation = async (req, res) => {
       'INSERT INTO operations (code, name, machine_type, takt_target_sec) VALUES ($1, $2, $3, $4) RETURNING *',
       [code, name, machine_type, takt_target_sec]
     );
-    res.status(201).json(result.rows[0]);
+    const newOperation = result.rows[0];
+    await logToAudit('create', 'operations', newOperation.id, req.user.id, req.body);
+    res.status(201).json(newOperation);
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(400).json({ message: `Operation with code '${code}' already exists.` });
+      return res.status(400).json({ message: `Operation với mã '${code}' đã tồn tại.` });
     }
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -68,14 +74,17 @@ exports.updateOperation = async (req, res) => {
       [code, name, machine_type, takt_target_sec, is_active, req.params.id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Operation not found' });
+      return res.status(404).json({ message: 'Không tìm thấy Operation' });
     }
-    res.json(result.rows[0]);
+    const updatedOperation = result.rows[0];
+    await logToAudit('update', 'operations', updatedOperation.id, req.user.id, req.body);
+    res.json(updatedOperation);
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(400).json({ message: `Operation with code '${code}' already exists.` });
+      return res.status(400).json({ message: `Operation với mã '${code}' đã tồn tại.` });
     }
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -89,10 +98,12 @@ exports.deleteOperation = async (req, res) => {
       [req.params.id]
     );
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'Operation not found' });
+      return res.status(404).json({ message: 'Không tìm thấy Operation' });
     }
-    res.status(200).json({ message: 'Operation deactivated successfully' });
+    await logToAudit('delete', 'operations', req.params.id, req.user.id, {});
+    res.status(200).json({ message: 'Operation đã hủy' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 };
