@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -12,9 +11,8 @@ function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
 
-    // Issue a new token with a refreshed expiration time
     const newToken = jwt.sign(
-      { id: decoded.id, role: decoded.role, username: decoded.username },
+      { userId: decoded.userId, role: decoded.role, username: decoded.username },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );

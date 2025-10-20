@@ -9,13 +9,14 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/roles');
 
 const routingValidation = [
-  body('product_id', 'Product ID là bắt buộc').isInt(),
-  body('version', 'Version là bắt buộc').not().isEmpty(),
-  body('steps', 'Các bước định tuyến phải là một mảng có ít nhất một bước').isArray({ min: 1 }),
-  body('steps.*.step_no', 'Số bước là bắt buộc và phải là một số nguyên').isInt(),
-  body('steps.*.operation_id', 'Operation ID là bắt buộc và phải là một số nguyên').isInt(),
-  body('steps.*.std_time_sec', 'Standard time là bắt buộc và phải là một số nguyên').isInt(),
+  body('product_id', 'Product ID is required').isInt(),
+  body('version', 'Version is required').not().isEmpty(),
+  body('steps', 'Routing steps must be an array with at least one step').isArray({ min: 1 }),
+  body('steps.*.step_no', 'Step number is required and must be an integer').isInt(),
+  body('steps.*.operation_id', 'Operation ID is required and must be an integer').isInt(),
+  body('steps.*.std_time_sec', 'Standard time is required and must be an integer').isInt(),
 ];
+
 router.post('/', auth, authorize(['Admin', 'Planner']), routingValidation, createRouting);
 router.get('/product/:productId', auth, getActiveRoutingForProduct);
 

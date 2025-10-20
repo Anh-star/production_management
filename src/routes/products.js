@@ -6,22 +6,32 @@ const {
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct,
-} = require('../controllers/productController');
-const auth = require('../middleware/auth');
-const authorize = require('../middleware/roles');
+    deleteProduct,
+    getProductsWithRouting,
+  } = require('../controllers/productController');
+  const auth = require('../middleware/auth');
+  const authorize = require('../middleware/roles');
+  
+  const productValidation = [
+    body('code', 'Product code is required').not().isEmpty(),
+    body('name', 'Product name is required').not().isEmpty(),
+    body('version', 'Version is required').not().isEmpty(),
+    body('uom', 'Unit of measure is required').not().isEmpty(),
+    body('is_active', 'is_active must be a boolean').optional().isBoolean(),
+    body('routingSteps', 'Routing steps must be an array with at least one step').optional().isArray({ min: 1 }),
+    body('routingSteps.*.step_no', 'Step number is required and must be an integer').optional().isInt(),
+    body('routingSteps.*.operation_id', 'Operation ID is required and must be an integer').optional().isInt(),
+    body('routingSteps.*.std_time_sec', 'Standard time is required and must be an integer').optional().isInt(),
+  ];  
+  
+  router.get('/', auth, authorize(['Admin', 'Planner', 'QC']), getProducts);
+  
+  router.get('/with-routing', auth, authorize(['Admin', 'Planner', 'QC']), getProductsWithRouting);
+  
+  router.get('/:id', auth, authorize(['Admin', 'Planner', 'QC']), getProductById);
 
-const productValidation = [
-  body('code', 'Mã sản phẩm là bắt buộc').not().isEmpty(),
-  body('name', 'Tên sản phẩm là bắt buộc').not().isEmpty(),
-  body('version', 'Cần có phiên bản').not().isEmpty(),
-  body('uom', 'Cần có đơn vị đo lường').not().isEmpty(),
-  body('is_active', 'is_active phải là một giá trị boolean').optional().isBoolean(),
-];
-router.get('/', auth, getProducts);
-router.get('/:id', auth, getProductById);
 router.post('/', auth, authorize('Admin'), productValidation, createProduct);
-router.put('/:id', auth, authorize('Admin'), productValidation, updateProduct);
+router.put('/:id', auth, authorize(['Admin', 'Planner', 'QC']), productValidation, updateProduct);
 router.delete('/:id', auth, authorize('Admin'), deleteProduct);
 
 module.exports = router;

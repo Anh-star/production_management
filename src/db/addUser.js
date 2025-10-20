@@ -40,7 +40,7 @@ async function addUser() {
     console.log(`   Password: ${password}`);
 
   } catch (err) {
-    console.error('\n❌ Error adding user to the database:');
+    console.error('\n Error adding user to the database:');
     console.error(err.message);
   } finally {
     await pool.end();

@@ -2,9 +2,6 @@ const pool = require('../config/db');
 const { validationResult } = require('express-validator');
 const { logToAudit } = require('../utils/audit');
 
-// @desc    Create a new routing for a product
-// @route   POST /api/routings
-// @access  Private (Planner, Admin)
 exports.createRouting = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -39,7 +36,7 @@ exports.createRouting = async (req, res) => {
     
     await logToAudit('create', 'routing_headers', routingId, req.user.id, req.body, client);
 
-    res.status(201).json({ message: 'Tuyến được tạo thành công', routing_id: routingId });
+    res.status(201).json({ message: 'Routing created successfully', routing_id: routingId });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err.message);
@@ -49,9 +46,6 @@ exports.createRouting = async (req, res) => {
   }
 };
 
-// @desc    Get the active routing for a product
-// @route   GET /api/routings/product/:productId
-// @access  Private
 exports.getActiveRoutingForProduct = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -61,7 +55,7 @@ exports.getActiveRoutingForProduct = async (req, res) => {
     );
 
     if (headerResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Không tìm thấy tuyến hoạt động cho sản phẩm này.' });
+      return res.status(404).json({ message: 'No active routing found for this product' });
     }
     const routingHeader = headerResult.rows[0];
 

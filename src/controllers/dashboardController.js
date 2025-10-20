@@ -1,9 +1,6 @@
 const pool = require('../config/db');
 const { validationResult } = require('express-validator');
 
-// @desc    Get aggregated production data for dashboards
-// @route   GET /api/dashboard
-// @access  Private (Planner, QC, Admin)
 exports.getDashboardSummary = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -11,35 +8,19 @@ exports.getDashboardSummary = async (req, res) => {
   }
 
   const { start_date, end_date, shift_id, line, po_id, product_id } = req.query;
-
   let query = `
     SELECT
-      pr.po_id,
-      po.code as po_code,
-      po.qty_plan,
-      pr.operation_id,
-      op.name as operation_name,
-      pr.shift_id,
-      s.name as shift_name,
-      pr.line,
-      p.id as product_id,
-      p.name as product_name,
-      SUM(pr.qty_ok) as total_qty_ok,
-      SUM(pr.qty_ng) as total_qty_ng,
-      SUM(pr.runtime_min) as total_runtime_min,
-      SUM(pr.downtime_min) as total_downtime_min,
+      SUM(pr.qty_ok) as total_production,
       CASE
-        WHEN po.qty_plan > 0 THEN SUM(pr.qty_ok) / po.qty_plan
+        WHEN SUM(po.qty_plan) > 0 THEN SUM(pr.qty_ok) / SUM(po.qty_plan)
         ELSE 0
-      END as plan_attainment,
+      END as plan_achievement_rate,
       CASE
-        WHEN SUM(pr.runtime_min) > 0 THEN SUM(pr.qty_ok) / SUM(pr.runtime_min)
+        WHEN SUM(pr.qty_ok) > 0 THEN (SUM(pr.qty_ng) * 100.0 / SUM(pr.qty_ok))
+        WHEN SUM(pr.qty_ng) > 0 AND SUM(pr.qty_ok) = 0 THEN 100.0
         ELSE 0
-      END as efficiency_output_per_min,
-      CASE
-        WHEN (SUM(pr.qty_ok) + SUM(pr.qty_ng)) > 0 THEN SUM(pr.qty_ng) / (SUM(pr.qty_ok) + SUM(pr.qty_ng))
-        ELSE 0
-      END as defect_rate
+      END as defect_rate,
+      0 AS oee_rate
     FROM prod_reports pr
     JOIN production_orders po ON pr.po_id = po.id
     JOIN products p ON po.product_id = p.id
@@ -47,32 +28,32 @@ exports.getDashboardSummary = async (req, res) => {
     JOIN shifts s ON pr.shift_id = s.id
   `;
 
-  const whereClauses = [];
+  const whereClauses = ['pr.started_at >= CURRENT_DATE'];
   const queryParams = [];
   let paramIndex = 1;
 
   if (start_date) {
-    whereClauses.push(`pr.started_at >= ${paramIndex++}`);
+    whereClauses.push(`pr.started_at >= $${paramIndex++}`);
     queryParams.push(start_date);
   }
   if (end_date) {
-    whereClauses.push(`pr.started_at <= ${paramIndex++}`);
+    whereClauses.push(`pr.started_at <= $${paramIndex++}`);
     queryParams.push(end_date);
   }
   if (shift_id) {
-    whereClauses.push(`pr.shift_id = ${paramIndex++}`);
+    whereClauses.push(`pr.shift_id = $${paramIndex++}`);
     queryParams.push(shift_id);
   }
   if (line) {
-    whereClauses.push(`pr.line = ${paramIndex++}`);
+    whereClauses.push(`pr.line = $${paramIndex++}`);
     queryParams.push(line);
   }
   if (po_id) {
-    whereClauses.push(`pr.po_id = ${paramIndex++}`);
+    whereClauses.push(`pr.po_id = $${paramIndex++}`);
     queryParams.push(po_id);
   }
   if (product_id) {
-    whereClauses.push(`po.product_id = ${paramIndex++}`);
+    whereClauses.push(`po.product_id = $${paramIndex++}`);
     queryParams.push(product_id);
   }
 
@@ -80,16 +61,21 @@ exports.getDashboardSummary = async (req, res) => {
     query += ' WHERE ' + whereClauses.join(' AND ');
   }
 
-  query += `
-    GROUP BY
-      pr.po_id, po.code, po.qty_plan, pr.operation_id, op.name, pr.shift_id, s.name, pr.line, p.id, p.name
-    ORDER BY
-      po_code, shift_name, line;
-  `;
-
   try {
     const result = await pool.query(query, queryParams);
-    res.json(result.rows);
+    const kpis = result.rows[0] || {
+      total_production: 0,
+      plan_achievement_rate: 0,
+      defect_rate: 0,
+      oee_rate: 0,
+    };
+
+    kpis.total_production = parseInt(kpis.total_production, 10) || 0;
+    kpis.plan_achievement_rate = parseFloat(kpis.plan_achievement_rate) || 0;
+    kpis.defect_rate = parseFloat(kpis.defect_rate) || 0;
+    kpis.oee_rate = parseFloat(kpis.oee_rate) || 0;
+    
+    res.json(kpis);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });

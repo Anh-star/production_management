@@ -12,15 +12,15 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/roles');
 
 const operationValidation = [
-  body('code', 'Mã Operation là bắt buộc').not().isEmpty(),
-  body('name', 'Tên Operation là bắt buộc').not().isEmpty(),
-  body('takt_target_sec', 'Mục tiêu phải là một số nguyên').optional().isInt(),
-  body('is_active', 'is_active phải là một giá trị boolean').optional().isBoolean(),
+  body('code', 'Operation code is required').not().isEmpty(),
+  body('name', 'Operation name is required').not().isEmpty(),
+  body('takt_target_sec', 'Takt target must be an integer').optional().isInt(),
+  body('is_active', 'is_active must be a boolean').optional().isBoolean(),
 ];
-router.get('/', auth, authorize('Admin'), getOperations);
-router.get('/:id', auth, authorize('Admin'), getOperationById);
-router.post('/', auth, authorize('Admin'), operationValidation, createOperation);
-router.put('/:id', auth, authorize('Admin'), operationValidation, updateOperation);
-router.delete('/:id', auth, authorize('Admin'), deleteOperation);
+router.get('/', auth, authorize(['Admin', 'Planner', 'QC']), getOperations);
+router.get('/:id', auth, authorize(['Admin', 'Planner', 'QC']), getOperationById);
+router.post('/', auth, authorize(['Admin', 'Planner', 'QC']), operationValidation, createOperation);
+router.put('/:id', auth, authorize(['Admin', 'Planner', 'QC']), operationValidation, updateOperation);
+router.delete('/:id', auth, authorize(['Admin', 'Planner', 'QC']), deleteOperation);
 
 module.exports = router;
